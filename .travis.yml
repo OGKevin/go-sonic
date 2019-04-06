@@ -29,5 +29,5 @@ before_install:
     fi)
   - echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, PR=$PR, BRANCH=$BRANCH, TAG=$TAG"
 script:
-  - go test ./... --count 1
+  - env GO111MODULE=on go test ./... --count 1
 

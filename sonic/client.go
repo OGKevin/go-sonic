@@ -142,4 +142,3 @@ func (b *DataBuilder) Text(text string) *DataBuilder {
 func (b *DataBuilder) Build() *Data {
 	return b.data
 }
-

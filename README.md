@@ -1,4 +1,4 @@
-WIP
+[![Build Status](https://travis-ci.com/OGKevin/go-sonic.svg?branch=master)](https://travis-ci.com/OGKevin/go-sonic)
 
 Golang bindings for https://github.com/valeriansaliou/sonic
 

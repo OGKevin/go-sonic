@@ -91,6 +91,32 @@ func (s *SearchService) pollForEvents() {
 	})
 }
 
+func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
+	if data.Collection == "" || data.Bucket == "" {
+		return nil, errors.New("collection and bucket should not be empty for suggest")
+	}
+
+	query := fmt.Sprintf("SUGGEST %s %s %q", data.Collection, data.Bucket, data.Text)
+
+	if limit != 0 {
+		query += fmt.Sprintf(" LIMIT(%d)", limit)
+	}
+
+	s.sl.Lock()
+	defer s.sl.Unlock()
+	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", query))
+	if err != nil {
+		return nil, errors.Wrap(err, "querying data for suggestion failed")
+	}
+
+	ch, err := s.parseResponse()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse response for suggest")
+	}
+
+	return ch, nil
+}
+
 func (s *SearchService) Query(data *Data, offset, limit int) (chan string, error) {
 	if data.Collection == "" || data.Bucket == "" {
 		return nil, errors.New("collection and bucket should not be empty for query")
@@ -113,6 +139,15 @@ func (s *SearchService) Query(data *Data, offset, limit int) (chan string, error
 		return nil, errors.Wrap(err, "querying data failed")
 	}
 
+	ch, err := s.parseResponse()
+	if err != nil {
+		return nil, errors.Wrap(err, "could not parse response for query")
+	}
+
+	return ch, nil
+}
+
+func (s *SearchService) parseResponse() (chan string, error) {
 scan:
 	s.s.Scan()
 
@@ -122,6 +157,17 @@ scan:
 
 	switch w.Text() {
 	case "PENDING":
+		ch := make(chan string)
+
+		w.Scan()
+
+		s.pl.Lock()
+		defer s.pl.Unlock()
+		s.pending[w.Text()] = ch
+
+		s.pollForEvents()
+
+		return ch, nil
 	case "EVENT":
 		// in case we intercept an event
 		go s.handleEvent(s.s.Text())
@@ -129,29 +175,16 @@ scan:
 	default:
 		return nil, errors.Errorf("could not determine how to interpret response: %q", s.s.Text())
 	}
-
-	ch := make(chan string)
-
-	w.Scan()
-
-	s.pl.Lock()
-	defer s.pl.Unlock()
-	s.pending[w.Text()] = ch
-
-	s.pollForEvents()
-
-	return ch, nil
 }
 
 func (s *SearchService) handleEvent(event string) {
-	log.Print(event)
 	w := bufio.NewScanner(bytes.NewBufferString(event))
 	w.Split(bufio.ScanWords)
 	w.Scan()
 	w.Scan()
 
 	switch w.Text() {
-	case "QUERY":
+	case "QUERY", "SUGGEST":
 		w.Scan()
 		s.pl.RLock()
 		defer s.pl.RUnlock()
@@ -161,7 +194,6 @@ func (s *SearchService) handleEvent(event string) {
 		for w.Scan() {
 			ch <- w.Text()
 		}
-	case "SUGGEST":
 	default:
 		log.Panicf("could not determine how to interpret event: %q", event)
 	}

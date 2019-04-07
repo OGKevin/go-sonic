@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Data is a generic struct that can be used for all the "queries"
 type Data struct {
 	Collection string
 	Bucket     string
@@ -23,6 +24,21 @@ type Client struct {
 	SearchService *SearchService
 }
 
+// SetDeadline sets the read and write deadlines associated
+// with the connection. It is equivalent to calling both
+// SetReadDeadline and SetWriteDeadline.
+//
+// A deadline is an absolute time after which I/O operations
+// fail with a timeout (see type Error) instead of
+// blocking. The deadline applies to all future and pending
+// I/O, not just the immediately following call to Read or
+// Write. After a deadline has been exceeded, the connection
+// can be refreshed by setting a deadline in the future.
+//
+// An idle timeout can be implemented by repeatedly extending
+// the deadline after successful Read or Write calls.
+//
+// A zero value for t means I/O operations will not time out.
 func (c *Client) SetDeadline(t time.Time) error {
 	if err := c.s.SetDeadline(t); err != nil {
 		return errors.Wrap(err, "could not set deadline for search connection")
@@ -35,6 +51,9 @@ func (c *Client) SetDeadline(t time.Time) error {
 	return nil
 }
 
+// SetReadDeadline sets the deadline for future Read calls
+// and any currently-blocked Read call.
+// A zero value for t means Read will not time out.
 func (c *Client) SetReadDeadline(t time.Time) error {
 	if err := c.s.SetReadDeadline(t); err != nil {
 		return errors.Wrap(err, "could not set read deadline for search connection")
@@ -47,6 +66,11 @@ func (c *Client) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
+// SetWriteDeadline sets the deadline for future Write calls
+// and any currently-blocked Write call.
+// Even if write times out, it may return n > 0, indicating that
+// some of the data was successfully written.
+// A zero value for t means Write will not time out.
 func (c *Client) SetWriteDeadline(t time.Time) error {
 	if err := c.s.SetWriteDeadline(t); err != nil {
 		return errors.Wrap(err, "could not set write deadline for search connection")
@@ -119,21 +143,25 @@ func NewDataBuilder() *DataBuilder {
 	return b
 }
 
+// Collection see https://github.com/valeriansaliou/sonic/blob/master/PROTOCOL.md for terminology explanation
 func (b *DataBuilder) Collection(collection string) *DataBuilder {
 	b.data.Collection = collection
 	return b
 }
 
+// Bucket see https://github.com/valeriansaliou/sonic/blob/master/PROTOCOL.md for terminology explanation
 func (b *DataBuilder) Bucket(bucket string) *DataBuilder {
 	b.data.Bucket = bucket
 	return b
 }
 
+// Object see https://github.com/valeriansaliou/sonic/blob/master/PROTOCOL.md for terminology explanation
 func (b *DataBuilder) Object(object string) *DataBuilder {
 	b.data.Object = object
 	return b
 }
 
+// Text or Word see https://github.com/valeriansaliou/sonic/blob/master/PROTOCOL.md for terminology explanation
 func (b *DataBuilder) Text(text string) *DataBuilder {
 	b.data.Text = text
 	return b

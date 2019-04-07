@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// SearchService exposes the search mode of sonic
 type SearchService struct {
 	c *Client
 
@@ -91,6 +92,7 @@ func (s *SearchService) pollForEvents() {
 	})
 }
 
+// Suggest  auto-completes word
 func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
 	if data.Collection == "" || data.Bucket == "" {
 		return nil, errors.New("collection and bucket should not be empty for suggest")
@@ -117,6 +119,7 @@ func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
 	return ch, nil
 }
 
+// Query query database
 func (s *SearchService) Query(data *Data, offset, limit int) (chan string, error) {
 	if data.Collection == "" || data.Bucket == "" {
 		return nil, errors.New("collection and bucket should not be empty for query")

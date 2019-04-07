@@ -10,6 +10,7 @@ import (
 	"sync"
 )
 
+// IngestService exposes the ingest mode of sonic
 type IngestService struct {
 	c *Client
 
@@ -46,7 +47,7 @@ parse:
 	return &IngestService{c: c, s: s}, nil
 }
 
-
+// Push search data in the index
 func (i *IngestService) Push(data *Data) (bool, error) {
 	if data.Collection == "" || data.Bucket == "" || data.Object == "" || data.Text == "" {
 		return false, errors.New("all ingest data are required for pushing")
@@ -74,6 +75,7 @@ func (i *IngestService) Push(data *Data) (bool, error) {
 	return true, nil
 }
 
+// Pop search data from the index
 func (i *IngestService) Pop(data *Data) (int, error) {
 	if data.Collection == "" || data.Bucket == "" || data.Object == "" || data.Text == "" {
 		return 0, errors.New("all ingest data are required for pushing")
@@ -106,6 +108,7 @@ func (i *IngestService) Pop(data *Data) (int, error) {
 	return c, nil
 }
 
+// Count indexed search data
 func (i *IngestService) Count(data *Data) (int, error) {
 	if data.Collection == "" {
 		return 0, errors.New("collection can not be an empty string")
@@ -189,6 +192,7 @@ func (i *IngestService) flush(query string) (int, error) {
 	return c, nil
 }
 
+// Flushc Flush all indexed data from a collection
 func (i *IngestService) Flushc(data *Data) (int, error) {
 	if data.Collection == "" {
 		return 0, errors.New("collection can not be an empty string")
@@ -197,6 +201,7 @@ func (i *IngestService) Flushc(data *Data) (int, error) {
 	return i.flush(fmt.Sprintf("FLUSHC %s\n", data.Collection))
 }
 
+// Flushb Flush all indexed data from a bucket in a collection
 func (i *IngestService) Flushb(data *Data) (int, error) {
 	if data.Collection == "" || data.Bucket == "" {
 		return 0, errors.New("collection and bucket can not be an empty strings")
@@ -205,9 +210,9 @@ func (i *IngestService) Flushb(data *Data) (int, error) {
 	return i.flush(fmt.Sprintf("FLUSHB %s %s\n", data.Collection, data.Bucket))
 }
 
-
+// Flusho Flush all indexed data from an object in a bucket in collection
 func (i *IngestService) Flusho(data *Data) (int, error) {
-	if data.Collection == "" || data.Bucket == "" || data.Object == ""{
+	if data.Collection == "" || data.Bucket == "" || data.Object == "" {
 		return 0, errors.New("collection, bucket and object can not be an empty strings")
 	}
 

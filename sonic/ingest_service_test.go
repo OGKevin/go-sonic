@@ -256,6 +256,9 @@ func TestIngestService_Flush(t *testing.T) {
 			flushMethod: c.IngestService.Flusho,
 		},
 	}
+
+	t.Parallel()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.beforeFunc != nil {
@@ -281,7 +284,15 @@ func beforePush4(t *testing.T, c *Client) bool {
 		if !assert.NoError(t, err) {
 			return false
 		}
+		_, err = c.IngestService.Push(NewDataBuilder().Collection("col2").Bucket("buc1").Object(uuid.NewV4().String()).Text(fmt.Sprintf("some magical text -- %s", uuid.NewV4())).Build())
+		if !assert.NoError(t, err) {
+			return false
+		}
 		_, err = c.IngestService.Push(NewDataBuilder().Collection("col1").Bucket("buc2").Object("obj1").Text(fmt.Sprintf("some magical text -- %s", uuid.NewV4())).Build())
+		if !assert.NoError(t, err) {
+			return false
+		}
+		_, err = c.IngestService.Push(NewDataBuilder().Collection("col2").Bucket("buc2").Object("obj1").Text(fmt.Sprintf("some magical text -- %s", uuid.NewV4())).Build())
 		if !assert.NoError(t, err) {
 			return false
 		}

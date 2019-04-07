@@ -3,9 +3,10 @@ package sonic
 import (
 	"context"
 	"fmt"
-	"github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSearchService_Query(t *testing.T) {
@@ -18,7 +19,7 @@ func TestSearchService_Query(t *testing.T) {
 		name    string
 		args    args
 		wantErr bool
-		result int
+		result  int
 	}{
 		{
 			name: "query no result",
@@ -28,18 +29,18 @@ func TestSearchService_Query(t *testing.T) {
 			result: 0,
 		},
 		{
-			name: "query 4 or 8 more result",
+			name: "query more then 1 result",
 			// need to flush buckets before running tests
 			args: args{
-				data: NewDataBuilder().Collection("col1").Bucket("buc1").Text("magical").Build(),
+				data: NewDataBuilder().Collection("col2").Bucket("buc1").Text("magical").Build(),
 			},
-			result: 8,
+			result: 2,
 		},
 		{
 			name: "query 1  result",
 			// need to flush buckets before running tests
 			args: args{
-				data: NewDataBuilder().Collection("col1").Bucket("buc2").Text("magical").Build(),
+				data: NewDataBuilder().Collection("col2").Bucket("buc2").Text("magical").Build(),
 			},
 			result: 1,
 		},
@@ -53,6 +54,8 @@ func TestSearchService_Query(t *testing.T) {
 	if !assert.True(t, beforePush4(t, c)) {
 		return
 	}
+
+	t.Parallel()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,8 +73,62 @@ func TestSearchService_Query(t *testing.T) {
 				c++
 			}
 
-			if !assert.True(t, tt.result >= c, fmt.Sprintf("want %d got %d", tt.result, c)) {
+			if !assert.True(t, tt.result <= c, fmt.Sprintf("want %d got %d", tt.result, c)) {
 				return
+			}
+		})
+	}
+}
+
+func TestSearchService_Suggest(t *testing.T) {
+	type args struct {
+		data  *Data
+		limit int
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      chan string
+		wantErr   bool
+	}{
+		{
+			name: "suggest with result",
+			args: args{
+				data:  NewDataBuilder().Collection("col2").Bucket("buc1").Text("som").Build(),
+				limit: 0,
+			},
+		},
+		{
+			name: "suggest in empty bucket",
+			args: args{
+				data:  NewDataBuilder().Collection("test").Bucket(uuid.NewV4().String()).Text("awe").Build(),
+				limit: 0,
+			},
+		},
+	}
+
+	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	if !assert.True(t, beforePush4(t, c)) {
+		return
+	}
+
+	t.Parallel()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := c.SearchService.Suggest(tt.args.data, tt.args.limit)
+			if tt.wantErr && !assert.NoError(t, err) {
+				return
+			}
+
+			for e := range got {
+				if !assert.NotEqual(t, "", e) {
+					return
+				}
 			}
 		})
 	}

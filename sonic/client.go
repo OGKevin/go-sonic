@@ -128,12 +128,12 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 		return nil, errors.Wrap(err, "could not set keep alive for ingest connection")
 	}
 
-	err = s.(*net.TCPConn).SetKeepAlivePeriod(time.Minute)
+	err = s.(*net.TCPConn).SetKeepAlivePeriod(time.Second * 10)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not set keep alive period of 1 minute for search connection")
 	}
 
-	err = i.(*net.TCPConn).SetKeepAlivePeriod(time.Minute)
+	err = i.(*net.TCPConn).SetKeepAlivePeriod(time.Second * 10)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not set keep alive period of 1 minute for ingest connection")
 	}

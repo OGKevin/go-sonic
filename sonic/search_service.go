@@ -174,6 +174,8 @@ scan:
 	case "EVENT":
 		// in case we intercept an event
 		go s.handleEvent(s.s.Text())
+		fallthrough
+	case "":
 		goto scan
 	default:
 		return nil, errors.Errorf("could not determine how to interpret response: %q", s.s.Text())

@@ -53,7 +53,26 @@ parse:
 		return nil, errors.Errorf("could not determine how to interpret %q response", s.Text())
 	}
 
-	return &SearchService{c: c, s: s, pending: make(map[string]chan string), ctx: ctx}, nil
+	ss := &SearchService{c: c, s: s, pending: make(map[string]chan string), ctx: ctx}
+	go ss.keepAlive()
+
+	return ss, nil
+}
+
+func (s *SearchService) keepAlive() {
+	ticker := time.Tick(time.Second * 5)
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker:
+			err := s.Ping()
+			s.pollForEvents()
+			if err != nil {
+				log.Print(err.Error())
+			}
+		}
+	}
 }
 
 func (s *SearchService) pollForEvents() {
@@ -79,7 +98,7 @@ func (s *SearchService) pollForEvents() {
 					switch w.Text() {
 					case "EVENT":
 						go s.handleEvent(s.s.Text())
-					case "":
+					case "", "PONG":
 						// do nothing
 					default:
 						log.Panicf("event poller managed to get/intercept a non event response: %q", s.s.Text())
@@ -117,6 +136,17 @@ func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
 	}
 
 	return ch, nil
+}
+
+func (s *SearchService) Ping() error {
+	s.sl.Lock()
+	defer s.sl.Unlock()
+	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
+	if err != nil {
+		return errors.Wrap(err, "querying data failed")
+	}
+
+	return nil
 }
 
 // Query query database
@@ -175,7 +205,7 @@ scan:
 		// in case we intercept an event
 		go s.handleEvent(s.s.Text())
 		fallthrough
-	case "":
+	case "", "PONG":
 		goto scan
 	default:
 		return nil, errors.Errorf("could not determine how to interpret response: %q", s.s.Text())

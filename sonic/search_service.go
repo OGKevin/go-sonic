@@ -143,7 +143,7 @@ func (s *SearchService) Ping() error {
 	defer s.sl.Unlock()
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
 	if err != nil {
-		return errors.Wrap(err, "querying data failed")
+		return errors.Wrap(err, "pinging sonic failed")
 	}
 
 	return nil

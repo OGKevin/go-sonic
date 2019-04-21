@@ -118,6 +118,26 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 		return nil, errors.Wrapf(err, "could not open connection to %q", address)
 	}
 
+	err = s.(*net.TCPConn).SetKeepAlive(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not set keep alive for search connection")
+	}
+
+	err = i.(*net.TCPConn).SetKeepAlive(true)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not set keep alive for ingest connection")
+	}
+
+	err = s.(*net.TCPConn).SetKeepAlivePeriod(time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not set keep alive period of 1 minute for search connection")
+	}
+
+	err = i.(*net.TCPConn).SetKeepAlivePeriod(time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not set keep alive period of 1 minute for ingest connection")
+	}
+
 	client := Client{i: i, s: s}
 	client.IngestService, err = newIngestService(&client, password)
 	if err != nil {

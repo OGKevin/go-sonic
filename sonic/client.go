@@ -20,6 +20,11 @@ type Client struct {
 	s net.Conn
 	i net.Conn
 
+	ctx context.Context
+
+	address  string
+	password string
+
 	IngestService *IngestService
 	SearchService *SearchService
 }
@@ -119,17 +124,48 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 	}
 
 	client := Client{i: i, s: s}
-	client.IngestService, err = newIngestService(&client, password)
+
+	client.password = password
+	client.address = address
+	client.ctx = ctx
+
+	client.IngestService, err = newIngestService(&client)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create ingest service")
 	}
 
-	client.SearchService, err = newSearchService(&client, password, ctx)
+	client.SearchService, err = newSearchService(&client)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create search service")
 	}
 
 	return &client, nil
+}
+
+func (c *Client) reconnect() error {
+	var err error
+
+	c.i, err = net.Dial("tcp", c.address)
+	if err != nil {
+		return errors.Wrapf(err, "could not open connection to %q", c.address)
+	}
+
+	c.s, err = net.Dial("tcp", c.address)
+	if err != nil {
+		return errors.Wrapf(err, "could not open connection to %q", c.address)
+	}
+
+	err = c.IngestService.connect()
+	if err != nil {
+		return errors.Wrap(err, "could not create ingest service")
+	}
+
+	err = c.SearchService.connect()
+	if err != nil {
+		return errors.Wrap(err, "could not create search service")
+	}
+
+	return nil
 }
 
 // Data builder pattern code

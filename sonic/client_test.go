@@ -36,6 +36,23 @@ func TestClient_Close(t *testing.T) {
 	}
 }
 
+func TestReconnect(t *testing.T) {
+	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	if !assert.NoError(t, err ) {
+		return
+	}
+
+	err = c.reconnect()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = c.SearchService.Ping()
+	if !assert.NoError(t, err) {
+		return
+	}
+}
+
 func ExampleNewClientWithPassword() {
 	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
 	if err != nil {

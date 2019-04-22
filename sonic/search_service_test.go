@@ -59,6 +59,10 @@ func TestSearchService_Query(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if !assert.NoError(t, c.reconnect()) {
+				return
+			}
+
 			if !assert.NoError(t, c.SearchService.Ping()) {
 				return
 			}
@@ -124,6 +128,10 @@ func TestSearchService_Suggest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if !assert.NoError(t, c.reconnect()) {
+				return
+			}
+
 			if !assert.NoError(t, c.SearchService.Ping()) {
 				return
 			}

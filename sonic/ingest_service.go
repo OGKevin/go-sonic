@@ -18,33 +18,39 @@ type IngestService struct {
 	s *bufio.Scanner
 }
 
-func newIngestService(c *Client, password string) (*IngestService, error) {
-	s := bufio.NewScanner(c.i)
+func newIngestService(c *Client) (*IngestService, error) {
 
-	_, err := io.WriteString(c.i, fmt.Sprintf("START ingest %s\n", password))
+	i := &IngestService{c: c}
+
+	return i, errors.Wrap(i.connect(), "could not connect to ingest service")
+}
+
+func (i *IngestService) connect() error {
+	s := bufio.NewScanner(i.c.i)
+	i.s =s
+
+	_, err := io.WriteString(i.c.i, fmt.Sprintf("START ingest %s\n", i.c.password))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not start ingest connection")
+		return errors.Wrap(err, "could not start ingest connection")
 	}
 
-	s.Scan()
-
 parse:
-	w := bufio.NewScanner(bytes.NewBuffer(s.Bytes()))
+	i.s.Scan()
+	w := bufio.NewScanner(bytes.NewBuffer(i.s.Bytes()))
 	w.Split(bufio.ScanWords)
 	w.Scan()
 
 	switch w.Text() {
 	case "STARTED":
-	case "CONNECTED":
-		s.Scan()
+	case "CONNECTED", "":
 		goto parse
 	case "ENDED":
-		return nil, errors.Errorf("failed to start ingest session: %q", s.Text())
+		return errors.Errorf("failed to start ingest session: %q", i.s.Text())
 	default:
-		return nil, errors.Errorf("could not determine how to interpret %q response", s.Text())
+		return errors.Errorf("could not determine how to interpret %q response", i.s.Text())
 	}
 
-	return &IngestService{c: c, s: s}, nil
+	return nil
 }
 
 // Push search data in the index

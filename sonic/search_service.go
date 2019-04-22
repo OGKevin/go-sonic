@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -27,36 +28,50 @@ type SearchService struct {
 	ctx context.Context
 }
 
-func newSearchService(c *Client, password string, ctx context.Context) (*SearchService, error) {
-	s := bufio.NewScanner(c.s)
+func newSearchService(c *Client) (*SearchService, error) {
+	ss := &SearchService{c: c, pending: make(map[string]chan string), ctx: c.ctx}
 
-	_, err := io.WriteString(c.s, fmt.Sprintf("START search %s\n", password))
+	err := ss.connect()
 	if err != nil {
-		return nil, errors.Wrap(err, "could not start search connection")
+		return nil, errors.Wrap(err, "could not connect to search service")
 	}
 
-	s.Scan()
+	go ss.keepAlive()
+
+	return ss, nil
+}
+
+func (s *SearchService) connect() error {
+	s.sl.Lock()
+	defer s.sl.Unlock()
+
+	scanner := bufio.NewScanner(s.c.s)
+	s.s = scanner
+
+	_, err := io.WriteString(s.c.s, fmt.Sprintf("START search %s\n", s.c.password))
+	if err != nil {
+		return errors.Wrap(err, "could not start search connection")
+	}
+
+	s.s.Scan()
 
 parse:
-	w := bufio.NewScanner(bytes.NewBuffer(s.Bytes()))
+	w := bufio.NewScanner(bytes.NewBuffer(s.s.Bytes()))
 	w.Split(bufio.ScanWords)
 	w.Scan()
 
 	switch w.Text() {
 	case "STARTED":
 	case "CONNECTED":
-		s.Scan()
+		s.s.Scan()
 		goto parse
 	case "ENDED":
-		return nil, errors.Errorf("failed to start search session: %q", s.Text())
+		return errors.Errorf("failed to start search session: %q", s.s.Text())
 	default:
-		return nil, errors.Errorf("could not determine how to interpret %q response", s.Text())
+		return errors.Errorf("could not determine how to interpret %q response", s.s.Text())
 	}
 
-	ss := &SearchService{c: c, s: s, pending: make(map[string]chan string), ctx: ctx}
-	go ss.keepAlive()
-
-	return ss, nil
+	return nil
 }
 
 func (s *SearchService) keepAlive() {
@@ -139,12 +154,25 @@ func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
 }
 
 func (s *SearchService) Ping() error {
+	reconnect := false
+
 	s.sl.Lock()
-	defer s.sl.Unlock()
+ping:
+
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
 	if err != nil {
+		s.sl.Unlock()
+		if err == syscall.EPIPE && !reconnect {
+			reconnect = true
+			err := s.c.reconnect()
+			if err != nil {
+				return errors.Wrap(err, "could not reconnect to sonic")
+			}
+			goto ping
+		}
 		return errors.Wrap(err, "pinging sonic failed")
 	}
+	s.sl.Unlock()
 
 	return nil
 }

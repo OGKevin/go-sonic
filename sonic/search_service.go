@@ -10,7 +10,7 @@ import (
 	"log"
 	"net"
 	"sync"
-	"syscall"
+	"os"
 	"time"
 )
 
@@ -157,19 +157,21 @@ func (s *SearchService) Suggest(data *Data, limit int) (chan string, error) {
 func (s *SearchService) Ping() error {
 	reconnect := false
 
-	s.sl.Lock()
 ping:
+	s.sl.Lock()
 
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
 	if err != nil {
 		s.sl.Unlock()
-		if err, ok := err.(*net.OpError); ok && err.Err == syscall.EPIPE && !reconnect {
-			reconnect = true
-			err := s.c.reconnect()
-			if err != nil {
-				return errors.Wrap(err, "could not reconnect to sonic")
+		if err, ok := err.(*net.OpError); ok {
+			if _, ok := err.Err.(*os.SyscallError); ok && !reconnect {
+				reconnect = true
+				err := s.c.reconnect()
+				if err != nil {
+					return errors.Wrap(err, "could not reconnect to sonic")
+				}
+				goto ping
 			}
-			goto ping
 		}
 		return errors.Wrap(err, "pinging sonic failed")
 	}

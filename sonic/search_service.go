@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"log"
+	"net"
 	"sync"
 	"syscall"
 	"time"
@@ -162,7 +163,7 @@ ping:
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
 	if err != nil {
 		s.sl.Unlock()
-		if err == syscall.EPIPE && !reconnect {
+		if err, ok := err.(*net.OpError); ok && err.Err == syscall.EPIPE && !reconnect {
 			reconnect = true
 			err := s.c.reconnect()
 			if err != nil {

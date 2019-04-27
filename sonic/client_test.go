@@ -42,12 +42,12 @@ func TestReconnect(t *testing.T) {
 		return
 	}
 
-	err = c.reconnect()
+	err = c.reconnect(context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = c.SearchService.Ping()
+	err = c.SearchService.Ping(context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -66,7 +66,7 @@ func ExampleNewClientWithPassword() {
 	}
 
 	// Search
-	ch, err := c.SearchService.Query(NewDataBuilder().Collection("my collection").Bucket("my bucket").Text("my string").Build(), 0, 0)
+	ch, err := c.SearchService.Query(context.Background(), NewDataBuilder().Collection("my collection").Bucket("my bucket").Text("my string").Build(), 0, 0)
 	for e := range ch {
 		log.Println(e)
 	}

@@ -2,6 +2,7 @@ package sonic
 
 import (
 	"context"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"io"
 	"net"
@@ -142,7 +143,10 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 	return &client, nil
 }
 
-func (c *Client) reconnect() error {
+func (c *Client) reconnect(ctx context.Context) error {
+	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-reconnect")
+	defer sp.Finish()
+
 	var err error
 
 	c.i, err = net.Dial("tcp", c.address)

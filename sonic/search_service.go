@@ -133,6 +133,16 @@ func (s *SearchService) pollForEvents() {
 						sp, ctx := opentracing.StartSpanFromContext(context.Background(), "sonic-pollForEvents")
 						defer sp.Finish()
 
+						checkSp, _ := opentracing.StartSpanFromContext(ctx, "should poll")
+						s.pl.RLock()
+						shouldPoll := len(s.pending) > 0
+						s.pl.RUnlock()
+						checkSp.SetTag("should poll", shouldPoll)
+						checkSp.Finish()
+						if !shouldPoll {
+							return
+						}
+
 						lsp, _ := opentracing.StartSpanFromContext(ctx, "acquiring lock")
 						lsp.SetTag("line", "sonic/search_service.go:115")
 						logrus.Debug("event poller getting lock")

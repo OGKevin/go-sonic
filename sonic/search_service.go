@@ -130,18 +130,16 @@ func (s *SearchService) pollForEvents() {
 				case <-t.C:
 					func() {
 						logrus.Debug("poll for events tick")
-						sp, ctx := opentracing.StartSpanFromContext(context.Background(), "sonic-pollForEvents")
-						defer sp.Finish()
 
-						checkSp, _ := opentracing.StartSpanFromContext(ctx, "should poll")
 						s.pl.RLock()
 						shouldPoll := len(s.pending) > 0
 						s.pl.RUnlock()
-						checkSp.SetTag("should poll", shouldPoll)
-						checkSp.Finish()
 						if !shouldPoll {
 							return
 						}
+
+						sp, ctx := opentracing.StartSpanFromContext(context.Background(), "sonic-pollForEvents")
+						defer sp.Finish()
 
 						lsp, _ := opentracing.StartSpanFromContext(ctx, "acquiring lock")
 						lsp.SetTag("line", "sonic/search_service.go:115")

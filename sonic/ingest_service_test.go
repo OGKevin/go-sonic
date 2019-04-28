@@ -49,6 +49,9 @@ func TestIngestService_Count(t *testing.T) {
 			},
 		},
 	}
+
+	t.Parallel()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
@@ -105,6 +108,8 @@ func TestIngestService_Push(t *testing.T) {
 		},
 	}
 
+	t.Parallel()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.fields.c.IngestService.Push(tt.args.data)
@@ -149,6 +154,9 @@ func TestIngestService_Pop(t *testing.T) {
 			want: 0,
 		},
 	}
+
+	t.Parallel()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.fields.c.IngestService.Pop(tt.args.data)

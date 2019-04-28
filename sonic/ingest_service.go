@@ -3,7 +3,9 @@ package sonic
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"io"
 	"strconv"
@@ -18,14 +20,19 @@ type IngestService struct {
 	s *bufio.Scanner
 }
 
-func newIngestService(c *Client) (*IngestService, error) {
+func newIngestService(ctx context.Context, c *Client) (*IngestService, error) {
+	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-newIngestService")
+	defer sp.Finish()
 
 	i := &IngestService{c: c}
 
-	return i, errors.Wrap(i.connect(), "could not connect to ingest service")
+	return i, errors.Wrap(i.connect(ctx), "could not connect to ingest service")
 }
 
-func (i *IngestService) connect() error {
+func (i *IngestService) connect(ctx context.Context) error {
+	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-ingest-connect")
+	defer sp.Finish()
+
 	s := bufio.NewScanner(i.c.i)
 	i.s =s
 

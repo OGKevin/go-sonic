@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -130,12 +131,12 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 	client.address = address
 	client.ctx = ctx
 
-	client.IngestService, err = newIngestService(&client)
+	client.IngestService, err = newIngestService(ctx, &client)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create ingest service")
 	}
 
-	client.SearchService, err = newSearchService(&client)
+	client.SearchService, err = newSearchService(ctx, &client)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create search service")
 	}
@@ -159,14 +160,34 @@ func (c *Client) reconnect(ctx context.Context) error {
 		return errors.Wrapf(err, "could not open connection to %q", c.address)
 	}
 
-	err = c.IngestService.connect()
-	if err != nil {
-		return errors.Wrap(err, "could not create ingest service")
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	errCh := make(chan error, 2)
 
-	err = c.SearchService.connect()
+	go func() {
+		defer wg.Done()
+
+		err := c.IngestService.connect(ctx)
+		if err != nil {
+			errCh <- errors.Wrap(err, "could not create ingest service")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		err := c.SearchService.connect(ctx)
+		if err != nil {
+			errCh <- errors.Wrap(err, "could not create search service")
+		}
+	}()
+
+	wg.Wait()
+	close(errCh)
+
+	err = <- errCh
 	if err != nil {
-		return errors.Wrap(err, "could not create search service")
+		return errors.Wrap(err, "could not reconnect to sonic")
 	}
 
 	return nil

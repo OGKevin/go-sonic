@@ -3,10 +3,11 @@ package sonic
 import (
 	"context"
 	"fmt"
-	"testing"
-
+	"github.com/opentracing/opentracing-go"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestSearchService_Query(t *testing.T) {
@@ -59,15 +60,21 @@ func TestSearchService_Query(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			logrus.Debug("attempting reconnect")
 			if !assert.NoError(t, c.reconnect(context.Background())) {
 				return
 			}
+			logrus.Debug("reconnect finished")
 
+			logrus.Debug("sending ping")
 			if !assert.NoError(t, c.SearchService.Ping(context.Background())) {
 				return
 			}
+			logrus.Debug("ping sent")
 
-			got, err := c.SearchService.Query(context.Background(), tt.args.data, tt.args.offset, tt.args.limit)
+			sp, ctx := opentracing.StartSpanFromContext(context.Background(), t.Name())
+			defer sp.Finish()
+			got, err := c.SearchService.Query(ctx, tt.args.data, tt.args.offset, tt.args.limit)
 			if !tt.wantErr && !assert.NoError(t, err) {
 				return
 			}

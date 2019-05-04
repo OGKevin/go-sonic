@@ -218,7 +218,6 @@ func (s *SearchService) Suggest(ctx context.Context, data *Data, limit int) (cha
 }
 
 func (s *SearchService) Ping(ctx context.Context) error {
-	//return nil
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Ping")
 	defer sp.Finish()
 
@@ -244,6 +243,11 @@ ping:
 		}
 		return errors.Wrap(err, "pinging sonic failed")
 	}
+
+	ssp, _ := opentracing.StartSpanFromContext(ctx, "scanning main scanner")
+	ssp.SetTag("scanned", s.s.Scan())
+	ssp.LogFields(opLog.String("scanned", s.s.Text()))
+	ssp.Finish()
 	sp.LogFields(opLog.Bool("reconnect", false))
 
 	return nil

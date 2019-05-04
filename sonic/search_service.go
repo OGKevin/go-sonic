@@ -129,8 +129,6 @@ func (s *SearchService) pollForEvents() {
 					return
 				case <-t.C:
 					func() {
-						logrus.Debug("poll for events tick")
-
 						s.pl.RLock()
 						shouldPoll := len(s.pending) > 0
 						s.pl.RUnlock()

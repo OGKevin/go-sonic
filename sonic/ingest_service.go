@@ -12,24 +12,68 @@ import (
 	"sync"
 )
 
+type IngestService interface {
+	Push(data *Data) (bool, error)
+	Pop(data *Data) (int, error)
+	Count(data *Data) (int, error)
+	Flushc(data *Data) (int, error)
+	Flushb(data *Data) (int, error)
+	Flusho(data *Data) (int, error)
+
+	connect(ctx context.Context) error
+}
+
+// NoOpsIngestService is an IngestService that does no operations on the methods it implements.
+type NoOpsIngestService struct {
+
+}
+
+func (*NoOpsIngestService) Push(data *Data) (bool, error) {
+	return true, nil
+}
+
+func (*NoOpsIngestService) Pop(data *Data) (int, error) {
+	return 0, nil
+}
+
+func (*NoOpsIngestService) Count(data *Data) (int, error) {
+	return 0, nil
+}
+
+func (*NoOpsIngestService) Flushc(data *Data) (int, error) {
+	return 0, nil
+}
+
+func (*NoOpsIngestService) Flushb(data *Data) (int, error) {
+	return 0, nil
+}
+
+func (*NoOpsIngestService) Flusho(data *Data) (int, error) {
+	return 0, nil
+}
+
+func (*NoOpsIngestService) connect(ctx context.Context) error {
+	return nil
+}
+
 // IngestService exposes the ingest mode of sonic
-type IngestService struct {
+type ingestService struct {
 	c *Client
 
 	l sync.Mutex
 	s *bufio.Scanner
 }
 
-func newIngestService(ctx context.Context, c *Client) (*IngestService, error) {
+func newIngestService(ctx context.Context, c *Client) (IngestService, error) {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-newIngestService")
 	defer sp.Finish()
 
-	i := &IngestService{c: c}
+	i := &ingestService{c: c}
 
 	return i, errors.Wrap(i.connect(ctx), "could not connect to ingest service")
 }
 
-func (i *IngestService) connect(ctx context.Context) error {
+func (i *ingestService) connect(ctx context.Context) error {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-ingest-connect")
 	defer sp.Finish()
 
@@ -61,7 +105,7 @@ parse:
 }
 
 // Push search data in the index
-func (i *IngestService) Push(data *Data) (bool, error) {
+func (i *ingestService) Push(data *Data) (bool, error) {
 	if data.Collection == "" || data.Bucket == "" || data.Object == "" || data.Text == "" {
 		return false, errors.New("all ingest data are required for pushing")
 	}
@@ -89,7 +133,7 @@ func (i *IngestService) Push(data *Data) (bool, error) {
 }
 
 // Pop search data from the index
-func (i *IngestService) Pop(data *Data) (int, error) {
+func (i *ingestService) Pop(data *Data) (int, error) {
 	if data.Collection == "" || data.Bucket == "" || data.Object == "" || data.Text == "" {
 		return 0, errors.New("all ingest data are required for pushing")
 	}
@@ -122,7 +166,7 @@ func (i *IngestService) Pop(data *Data) (int, error) {
 }
 
 // Count indexed search data
-func (i *IngestService) Count(data *Data) (int, error) {
+func (i *ingestService) Count(data *Data) (int, error) {
 	if data.Collection == "" {
 		return 0, errors.New("collection can not be an empty string")
 	}
@@ -173,7 +217,7 @@ func (i *IngestService) Count(data *Data) (int, error) {
 	return c, nil
 }
 
-func (i *IngestService) flush(query string) (int, error) {
+func (i *ingestService) flush(query string) (int, error) {
 	i.l.Lock()
 	defer i.l.Unlock()
 	_, err := io.WriteString(i.c.i, query)
@@ -206,7 +250,7 @@ func (i *IngestService) flush(query string) (int, error) {
 }
 
 // Flushc Flush all indexed data from a collection
-func (i *IngestService) Flushc(data *Data) (int, error) {
+func (i *ingestService) Flushc(data *Data) (int, error) {
 	if data.Collection == "" {
 		return 0, errors.New("collection can not be an empty string")
 	}
@@ -215,7 +259,7 @@ func (i *IngestService) Flushc(data *Data) (int, error) {
 }
 
 // Flushb Flush all indexed data from a bucket in a collection
-func (i *IngestService) Flushb(data *Data) (int, error) {
+func (i *ingestService) Flushb(data *Data) (int, error) {
 	if data.Collection == "" || data.Bucket == "" {
 		return 0, errors.New("collection and bucket can not be an empty strings")
 	}
@@ -224,7 +268,7 @@ func (i *IngestService) Flushb(data *Data) (int, error) {
 }
 
 // Flusho Flush all indexed data from an object in a bucket in collection
-func (i *IngestService) Flusho(data *Data) (int, error) {
+func (i *ingestService) Flusho(data *Data) (int, error) {
 	if data.Collection == "" || data.Bucket == "" || data.Object == "" {
 		return 0, errors.New("collection, bucket and object can not be an empty strings")
 	}

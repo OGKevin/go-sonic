@@ -27,8 +27,8 @@ type Client struct {
 	address  string
 	password string
 
-	IngestService *IngestService
-	SearchService *SearchService
+	IngestService IngestService
+	SearchService SearchService
 }
 
 // SetDeadline sets the read and write deadlines associated
@@ -142,6 +142,14 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 	}
 
 	return &client, nil
+}
+
+func NewNoOpsClient(ctx context.Context) *Client {
+	return &Client{
+		ctx: ctx,
+		IngestService: &NoOpsIngestService{},
+		SearchService: &NoOpsSearchService{},
+	}
 }
 
 func (c *Client) reconnect(ctx context.Context) error {

@@ -23,8 +23,43 @@ type pendingQuery struct {
 	sp  opentracing.Span
 }
 
-// SearchService exposes the search mode of sonic
-type SearchService struct {
+type SearchService interface {
+	Suggest(ctx context.Context, data *Data, limit int) (chan string, error)
+	Ping(ctx context.Context) error
+	Query(ctx context.Context, data *Data, offset, limit int) (chan string, error)
+
+	connect(ctx context.Context) error
+}
+
+// NoOpsSearchService Is a search service that preforms no operations.
+type NoOpsSearchService struct {
+
+}
+
+func (*NoOpsSearchService) connect(ctx context.Context) error {
+	return nil
+}
+
+func (*NoOpsSearchService) Suggest(ctx context.Context, data *Data, limit int) (chan string, error) {
+	ch := make(chan string)
+	close(ch)
+
+	return ch, nil
+}
+
+func (*NoOpsSearchService) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (*NoOpsSearchService) Query(ctx context.Context, data *Data, offset, limit int) (chan string, error) {
+	ch := make(chan string)
+	close(ch)
+
+	return ch, nil
+}
+
+// searchService exposes the search mode of sonic
+type searchService struct {
 	c *Client
 
 	sl sync.Mutex
@@ -38,11 +73,11 @@ type SearchService struct {
 	ctx context.Context
 }
 
-func newSearchService(ctx context.Context, c *Client) (*SearchService, error) {
+func newSearchService(ctx context.Context, c *Client) (SearchService, error) {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-newSearchService")
 	defer sp.Finish()
 
-	ss := &SearchService{c: c, pending: make(map[string]*pendingQuery), ctx: c.ctx}
+	ss := &searchService{c: c, pending: make(map[string]*pendingQuery), ctx: c.ctx}
 
 	err := ss.connect(ctx)
 	if err != nil {
@@ -54,7 +89,7 @@ func newSearchService(ctx context.Context, c *Client) (*SearchService, error) {
 	return ss, nil
 }
 
-func (s *SearchService) connect(ctx context.Context) error {
+func (s *searchService) connect(ctx context.Context) error {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-search-connect")
 	defer sp.Finish()
 
@@ -90,7 +125,7 @@ parse:
 	return nil
 }
 
-func (s *SearchService) keepAlive() {
+func (s *searchService) keepAlive() {
 	go func() {
 		ticker := time.Tick(time.Second * 5)
 		for {
@@ -118,7 +153,7 @@ func (s *SearchService) keepAlive() {
 	}()
 }
 
-func (s *SearchService) pollForEvents() {
+func (s *searchService) pollForEvents() {
 	s.onePoll.Do(func() {
 		t := time.NewTicker(time.Millisecond * 100)
 		go func() {
@@ -183,7 +218,7 @@ func (s *SearchService) pollForEvents() {
 }
 
 // Suggest  auto-completes word
-func (s *SearchService) Suggest(ctx context.Context, data *Data, limit int) (chan string, error) {
+func (s *searchService) Suggest(ctx context.Context, data *Data, limit int) (chan string, error) {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Suggest")
 	defer sp.Finish()
 
@@ -215,7 +250,7 @@ func (s *SearchService) Suggest(ctx context.Context, data *Data, limit int) (cha
 	return ch, nil
 }
 
-func (s *SearchService) Ping(ctx context.Context) error {
+func (s *searchService) Ping(ctx context.Context) error {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Ping")
 	defer sp.Finish()
 
@@ -252,7 +287,7 @@ ping:
 }
 
 // Query query database
-func (s *SearchService) Query(ctx context.Context, data *Data, offset, limit int) (chan string, error) {
+func (s *searchService) Query(ctx context.Context, data *Data, offset, limit int) (chan string, error) {
 	logrus.Debug("preforming query")
 	defer logrus.Debug("done performing query")
 
@@ -299,7 +334,7 @@ func (s *SearchService) Query(ctx context.Context, data *Data, offset, limit int
 	return ch, nil
 }
 
-func (s *SearchService) parseResponse(ctx context.Context) (chan string, error) {
+func (s *searchService) parseResponse(ctx context.Context) (chan string, error) {
 	logrus.Debug("parsing response")
 	defer logrus.Debug("done parsing response")
 
@@ -345,7 +380,7 @@ scan:
 	}
 }
 
-func (s *SearchService) handleEvent(ctx context.Context, event string) {
+func (s *searchService) handleEvent(ctx context.Context, event string) {
 	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-handleEvent")
 	defer sp.Finish()
 

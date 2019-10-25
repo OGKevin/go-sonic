@@ -126,8 +126,7 @@ func (s *searchService) keepAlive() {
 			case <-ticker:
 				func() {
 					logrus.Debugf("starting span sonic-keepAlive")
-					ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
-					defer cancel()
+					ctx := context.Background()
 					logrus.Debugf("sending ping from keep alive")
 					err := s.Ping(ctx)
 					logrus.Debugf("ping sent")
@@ -160,8 +159,7 @@ func (s *searchService) pollForEvents() {
 							return
 						}
 
-						ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
-						defer cancel()
+						ctx := context.Background()
 
 						logrus.Debug("event poller getting lock")
 						s.sl.Lock()

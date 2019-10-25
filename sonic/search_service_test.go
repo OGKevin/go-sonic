@@ -3,7 +3,6 @@ package sonic
 import (
 	"context"
 	"fmt"
-	"github.com/opentracing/opentracing-go"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -72,8 +71,7 @@ func TestSearchService_Query(t *testing.T) {
 			}
 			logrus.Debug("ping sent")
 
-			sp, ctx := opentracing.StartSpanFromContext(context.Background(), t.Name())
-			defer sp.Finish()
+			ctx := context.Background()
 			got, err := c.SearchService.Query(ctx, tt.args.data, tt.args.offset, tt.args.limit)
 			if !tt.wantErr && !assert.NoError(t, err) {
 				return

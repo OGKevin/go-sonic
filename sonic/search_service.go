@@ -5,14 +5,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/opentracing/opentracing-go"
-	opLog "github.com/opentracing/opentracing-go/log"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"io"
 	"log"
 	"net"
 	"os"
+
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 
 type pendingQuery struct {
 	ids chan string
-	sp  opentracing.Span
 }
 
 type SearchService interface {
@@ -73,9 +71,6 @@ type searchService struct {
 }
 
 func newSearchService(ctx context.Context, c *Client) (SearchService, error) {
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-newSearchService")
-	defer sp.Finish()
-
 	ss := &searchService{c: c, pending: make(map[string]*pendingQuery), ctx: c.ctx}
 
 	err := ss.connect(ctx)
@@ -89,9 +84,6 @@ func newSearchService(ctx context.Context, c *Client) (SearchService, error) {
 }
 
 func (s *searchService) connect(ctx context.Context) error {
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-search-connect")
-	defer sp.Finish()
-
 	s.sl.Lock()
 	defer s.sl.Unlock()
 
@@ -134,16 +126,14 @@ func (s *searchService) keepAlive() {
 			case <-ticker:
 				func() {
 					logrus.Debugf("starting span sonic-keepAlive")
-					sp, ctx := opentracing.StartSpanFromContext(context.Background(), "sonic-keepAlive")
-					defer sp.Finish()
-
+					ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+					defer cancel()
 					logrus.Debugf("sending ping from keep alive")
 					err := s.Ping(ctx)
 					logrus.Debugf("ping sent")
 
 					s.pollForEvents()
 					if err != nil {
-						sp.LogFields(opLog.Error(err))
 						logrus.WithError(err).Error("error while pinging sonic")
 					}
 				}()
@@ -170,32 +160,21 @@ func (s *searchService) pollForEvents() {
 							return
 						}
 
-						sp, ctx := opentracing.StartSpanFromContext(context.Background(), "sonic-pollForEvents")
-						defer sp.Finish()
+						ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+						defer cancel()
 
-						lsp, _ := opentracing.StartSpanFromContext(ctx, "acquiring lock")
-						lsp.SetTag("line", "sonic/search_service.go:115")
 						logrus.Debug("event poller getting lock")
 						s.sl.Lock()
 						logrus.Debug("event poller got lock")
-						lsp.Finish()
 						defer func() {
 							defer s.sl.Unlock()
 							logrus.Debug("event poller releasing lock")
 						}()
 
-						ssp, _ := opentracing.StartSpanFromContext(ctx, "scanning main scanner")
 						scanned := s.s.Scan()
-						ssp.LogFields(opLog.Bool("scanned", scanned))
-						ssp.Finish()
-
-						sp.SetTag("scanned", scanned)
-
 						if !scanned {
 							return
 						}
-
-						sp.LogFields(opLog.String("scanned value", s.s.Text()))
 
 						w := bufio.NewScanner(bytes.NewBuffer(s.s.Bytes()))
 						w.Split(bufio.ScanWords)
@@ -218,9 +197,6 @@ func (s *searchService) pollForEvents() {
 
 // Suggest  auto-completes word
 func (s *searchService) Suggest(ctx context.Context, data *Data, limit int) (chan string, error) {
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Suggest")
-	defer sp.Finish()
-
 	if data.Collection == "" || data.Bucket == "" {
 		return nil, errors.New("collection and bucket should not be empty for suggest")
 	}
@@ -231,9 +207,7 @@ func (s *searchService) Suggest(ctx context.Context, data *Data, limit int) (cha
 		query += fmt.Sprintf(" LIMIT(%d)", limit)
 	}
 
-	lsp := sp.Tracer().StartSpan("acquiring lock", opentracing.ChildOf(sp.Context()))
 	s.sl.Lock()
-	lsp.Finish()
 	defer s.sl.Unlock()
 
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", query))
@@ -250,21 +224,15 @@ func (s *searchService) Suggest(ctx context.Context, data *Data, limit int) (cha
 }
 
 func (s *searchService) Ping(ctx context.Context) error {
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Ping")
-	defer sp.Finish()
-
 	reconnect := false
-	lsp, _ := opentracing.StartSpanFromContext(ctx, "acquiring lock")
 	s.sl.Lock()
 	defer s.sl.Unlock()
-	lsp.Finish()
 
 ping:
 	_, err := io.WriteString(s.c.s, fmt.Sprintf("%s\n", "PING"))
 	if err != nil {
 		if err, ok := err.(*net.OpError); ok && !reconnect {
 			if _, ok := err.Err.(*os.SyscallError); ok && !reconnect {
-				sp.LogFields(opLog.Bool("reconnect", true))
 				reconnect = true
 				err := s.c.reconnect(ctx)
 				if err != nil {
@@ -276,12 +244,6 @@ ping:
 		return errors.Wrap(err, "pinging sonic failed")
 	}
 
-	ssp, _ := opentracing.StartSpanFromContext(ctx, "scanning main scanner")
-	ssp.SetTag("scanned", s.s.Scan())
-	ssp.LogFields(opLog.String("scanned", s.s.Text()))
-	ssp.Finish()
-	sp.LogFields(opLog.Bool("reconnect", false))
-
 	return nil
 }
 
@@ -289,9 +251,6 @@ ping:
 func (s *searchService) Query(ctx context.Context, data *Data, offset, limit int) (chan string, error) {
 	logrus.Debug("preforming query")
 	defer logrus.Debug("done performing query")
-
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-Query")
-	defer sp.Finish()
 
 	if data.Collection == "" || data.Bucket == "" {
 		return nil, errors.New("collection and bucket should not be empty for query")
@@ -307,12 +266,9 @@ func (s *searchService) Query(ctx context.Context, data *Data, offset, limit int
 		query += fmt.Sprintf(" LIMIT(%d)", limit)
 	}
 
-	lsp := sp.Tracer().StartSpan("acquiring lock", opentracing.ChildOf(sp.Context()))
-	lsp.SetTag("line", "sonic/search_service.go:222")
 	logrus.Debug("getting lock")
 	s.sl.Lock()
 	logrus.Debug("got lock")
-	lsp.Finish()
 	defer func() {
 		defer s.sl.Unlock()
 		logrus.Debug("releasing lock")
@@ -337,35 +293,24 @@ func (s *searchService) parseResponse(ctx context.Context) (chan string, error) 
 	logrus.Debug("parsing response")
 	defer logrus.Debug("done parsing response")
 
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-parseResponse")
-	defer sp.Finish()
 scan:
-	ssp, _ := opentracing.StartSpanFromContext(ctx, "scanning main scanner")
-	scanned := s.s.Scan()
-	ssp.LogFields(opLog.Bool("scanned", scanned))
-	ssp.Finish()
-
-	sp.SetTag("scanned", scanned)
-	sp.LogFields(opLog.String("scanned value", s.s.Text()))
-
+	s.s.Scan()
 	w := bufio.NewScanner(bytes.NewBuffer(s.s.Bytes()))
 	w.Split(bufio.ScanWords)
 	w.Scan()
 
 	switch w.Text() {
 	case "PENDING":
-		psp, _ := opentracing.StartSpanFromContext(ctx, "sonic-parseResponse-pending")
-		defer psp.Finish()
-
 		ch := make(chan string)
 
 		w.Scan()
 
 		s.pl.Lock()
 		defer s.pl.Unlock()
-		s.pending[w.Text()] = &pendingQuery{ids: ch, sp: opentracing.StartSpan("sonic-parseResponse-pending-waiting-for-response")}
 
 		s.pollForEvents()
+
+		s.pending[w.Text()] = &pendingQuery{ids: ch}
 
 		return ch, nil
 	case "EVENT":
@@ -380,9 +325,6 @@ scan:
 }
 
 func (s *searchService) handleEvent(ctx context.Context, event string) {
-	sp, ctx := opentracing.StartSpanFromContext(ctx, "sonic-handleEvent")
-	defer sp.Finish()
-
 	w := bufio.NewScanner(bytes.NewBufferString(event))
 	w.Split(bufio.ScanWords)
 	w.Scan()
@@ -394,13 +336,10 @@ func (s *searchService) handleEvent(ctx context.Context, event string) {
 		s.pl.RLock()
 		defer s.pl.RUnlock()
 		pending := s.pending[w.Text()]
-		defer pending.sp.Finish()
 		defer close(pending.ids)
 
 		for w.Scan() {
-			chSp := opentracing.StartSpan("sending-result-to-chan", opentracing.ChildOf(pending.sp.Context()))
 			pending.ids <- w.Text()
-			chSp.Finish()
 		}
 	default:
 		log.Panicf("could not determine how to interpret event: %q", event)

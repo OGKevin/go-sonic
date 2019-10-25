@@ -18,7 +18,7 @@ func TestClient_Close(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+			c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -37,8 +37,8 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestReconnect(t *testing.T) {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
-	if !assert.NoError(t, err ) {
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
+	if !assert.NoError(t, err) {
 		return
 	}
 
@@ -54,7 +54,7 @@ func TestReconnect(t *testing.T) {
 }
 
 func ExampleNewClientWithPassword() {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if err != nil {
 		panic(err)
 	}

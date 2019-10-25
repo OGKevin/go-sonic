@@ -146,7 +146,7 @@ func NewClientWithPassword(address, password string, ctx context.Context) (*Clie
 
 func NewNoOpsClient(ctx context.Context) *Client {
 	return &Client{
-		ctx: ctx,
+		ctx:           ctx,
 		IngestService: &NoOpsIngestService{},
 		SearchService: &NoOpsSearchService{},
 	}
@@ -193,7 +193,7 @@ func (c *Client) reconnect(ctx context.Context) error {
 	wg.Wait()
 	close(errCh)
 
-	err = <- errCh
+	err = <-errCh
 	if err != nil {
 		return errors.Wrap(err, "could not reconnect to sonic")
 	}

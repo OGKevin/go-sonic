@@ -33,7 +33,6 @@ type SearchService interface {
 
 // NoOpsSearchService Is a search service that preforms no operations.
 type NoOpsSearchService struct {
-
 }
 
 func (*NoOpsSearchService) connect(ctx context.Context) error {

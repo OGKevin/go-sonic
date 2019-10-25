@@ -9,8 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	PASSWORD = "SecretPassword"
+)
+
 func TestIngestService_Count(t *testing.T) {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 
 	if !assert.NoError(t, err) {
 		return
@@ -78,7 +82,7 @@ func TestIngestService_Count(t *testing.T) {
 }
 
 func TestIngestService_Push(t *testing.T) {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -125,7 +129,7 @@ func TestIngestService_Push(t *testing.T) {
 }
 
 func TestIngestService_Pop(t *testing.T) {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -172,7 +176,7 @@ func TestIngestService_Pop(t *testing.T) {
 }
 
 func TestIngestService_Flush(t *testing.T) {
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -233,7 +237,6 @@ func TestIngestService_Flush(t *testing.T) {
 			},
 			args: args{
 				data: NewDataBuilder().Collection("col1").Bucket("buc1").Object(uuid.NewV4().String()).Text(uuid.NewV4().String()).Build(),
-
 			},
 			want:        34,
 			beforeFunc:  beforePush4,
@@ -257,7 +260,6 @@ func TestIngestService_Flush(t *testing.T) {
 			},
 			args: args{
 				data: NewDataBuilder().Collection("col1").Bucket("buc2").Object("obj1").Text(uuid.NewV4().String()).Build(),
-
 			},
 			want:        41,
 			beforeFunc:  beforePush4,
@@ -279,7 +281,7 @@ func TestIngestService_Flush(t *testing.T) {
 			if !assert.NoError(t, err) != tt.wantErr {
 				return
 			}
-			if !assert.True(t, tt.want + 5 > got, fmt.Sprintf("want %d, got %d",tt.want + 5, got)) {
+			if !assert.True(t, tt.want+5 > got, fmt.Sprintf("want %d, got %d", tt.want+5, got)) {
 				return
 			}
 		})

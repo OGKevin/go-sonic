@@ -47,7 +47,7 @@ func TestSearchService_Query(t *testing.T) {
 		},
 	}
 
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -101,10 +101,10 @@ func TestSearchService_Suggest(t *testing.T) {
 		limit int
 	}
 	tests := []struct {
-		name      string
-		args      args
-		want      chan string
-		wantErr   bool
+		name    string
+		args    args
+		want    chan string
+		wantErr bool
 	}{
 		{
 			name: "suggest with result",
@@ -122,7 +122,7 @@ func TestSearchService_Suggest(t *testing.T) {
 		},
 	}
 
-	c, err := NewClientWithPassword("localhost:1491", "SecretPassword", context.Background())
+	c, err := NewClientWithPassword("localhost:1491", PASSWORD, context.Background())
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -25,7 +25,6 @@ type IngestService interface {
 
 // NoOpsIngestService is an IngestService that does no operations on the methods it implements.
 type NoOpsIngestService struct {
-
 }
 
 func (*NoOpsIngestService) Push(data *Data) (bool, error) {
@@ -78,7 +77,7 @@ func (i *ingestService) connect(ctx context.Context) error {
 	defer sp.Finish()
 
 	s := bufio.NewScanner(i.c.i)
-	i.s =s
+	i.s = s
 
 	_, err := io.WriteString(i.c.i, fmt.Sprintf("START ingest %s\n", i.c.password))
 	if err != nil {

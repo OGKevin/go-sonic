@@ -1,4 +1,4 @@
-module github.com/Leryan/go-sonic
+module github.com/OGKevin/go-sonic
 
 go 1.13
 
